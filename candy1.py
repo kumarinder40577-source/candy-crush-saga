@@ -1,21 +1,26 @@
-import IPython
-from google.colab import output
+import streamlit as st
+import streamlit.components.v1 as components
 
-# This is a combination of Python (to serve the cell) and JavaScript (to run the game)
+# Set Streamlit page config
+st.set_page_config(page_title="Candy Crush Saga", layout="centered")
+
+st.title("🍭 Candy Crush Python")
+st.write("Click two adjacent candies to swap them!")
+
+# The Game Logic (HTML/JavaScript)
 html_code = """
 <!DOCTYPE html>
 <html>
 <head>
     <style>
-        canvas { border: 5px solid #444; border-radius: 10px; cursor: pointer; }
-        body { display: flex; flex-direction: column; align-items: center; background: #222; color: white; font-family: sans-serif; }
+        canvas { border: 5px solid #444; border-radius: 10px; cursor: pointer; background-color: #333; }
+        body { display: flex; flex-direction: column; align-items: center; background: transparent; color: white; font-family: sans-serif; }
         .stats { margin: 10px; font-size: 24px; font-weight: bold; color: #FFD700; }
     </style>
 </head>
 <body>
     <div class="stats">Score: <span id="score">0</span></div>
     <canvas id="gameCanvas" width="400" height="400"></canvas>
-    <p>Click two adjacent candies to swap them!</p>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -31,7 +36,6 @@ html_code = """
         let score = 0;
         let selected = null;
 
-        // Audio setup (using browser's synthesis for sound effects without needing external files)
         const playSound = (freq, type) => {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
@@ -50,7 +54,7 @@ html_code = """
             for (let r = 0; r < GRID_SIZE; r++) {
                 board[r] = [];
                 for (let c = 0; c < GRID_SIZE; c++) {
-                    board[r][c] = { color: Math.floor(Math.random() * COLORS.length), yOffset: 0 };
+                    board[r][c] = { color: Math.floor(Math.random() * COLORS.length) };
                 }
             }
         }
@@ -61,15 +65,13 @@ html_code = """
                 for (let c = 0; c < GRID_SIZE; c++) {
                     const candy = board[r][c];
                     const x = c * TILE_SIZE;
-                    const y = r * TILE_SIZE + candy.yOffset;
+                    const y = r * TILE_SIZE;
                     
-                    // Draw Candy Background
                     ctx.fillStyle = COLORS[candy.color];
                     ctx.beginPath();
                     ctx.roundRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10, 10);
                     ctx.fill();
                     
-                    // Draw Icon
                     ctx.fillStyle = "white";
                     ctx.font = "24px Arial";
                     ctx.textAlign = "center";
@@ -86,7 +88,6 @@ html_code = """
 
         function checkMatches() {
             let toMatch = [];
-            // Horizontal
             for (let r = 0; r < GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE - 2; c++) {
                     if (board[r][c].color === board[r][c+1].color && board[r][c].color === board[r][c+2].color) {
@@ -94,7 +95,6 @@ html_code = """
                     }
                 }
             }
-            // Vertical
             for (let r = 0; r < GRID_SIZE - 2; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
                     if (board[r][c].color === board[r+1][c].color && board[r][c].color === board[r+2][c].color) {
@@ -107,63 +107,4 @@ html_code = """
 
         async function processMatches() {
             let matches = checkMatches();
-            if (matches.length > 0) {
-                playSound(440, 'sine'); // Match sound
-                score += matches.length * 10;
-                scoreElement.innerText = score;
-                
-                matches.forEach(m => board[m.r][m.c].color = -1);
-                
-                // Simple "Gravity" Animation
-                await new Promise(r => setTimeout(r, 200));
-                
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    let emptySpace = 0;
-                    for (let r = GRID_SIZE - 1; r >= 0; r--) {
-                        if (board[r][c].color === -1) {
-                            emptySpace++;
-                        } else if (emptySpace > 0) {
-                            board[r + emptySpace][c].color = board[r][c].color;
-                            board[r][c].color = -1;
-                        }
-                    }
-                    for (let r = 0; r < emptySpace; r++) {
-                        board[r][c].color = Math.floor(Math.random() * COLORS.length);
-                    }
-                }
-                drawBoard();
-                setTimeout(processMatches, 300);
-            }
-        }
-
-        canvas.onclick = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const c = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-            const r = Math.floor((e.clientY - rect.top) / TILE_SIZE);
-
-            if (!selected) {
-                selected = {r, c};
-                playSound(600, 'square');
-            } else {
-                const dist = Math.abs(r - selected.r) + Math.abs(c - selected.c);
-                if (dist === 1) {
-                    let temp = board[r][c].color;
-                    board[r][c].color = board[selected.r][selected.c].color;
-                    board[selected.r][selected.c].color = temp;
-                    processMatches();
-                }
-                selected = null;
-            }
-            drawBoard();
-        };
-
-        initBoard();
-        // Clear initial matches
-        while(checkMatches().length > 0) { initBoard(); }
-        drawBoard();
-    </script>
-</body>
-</html>
-"""
-
-display(IPython.display.HTML(html_code))
+            if (matches.length
