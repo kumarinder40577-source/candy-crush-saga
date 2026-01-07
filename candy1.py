@@ -1,14 +1,15 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Set Streamlit page config
+# 1. Set Page Configuration
 st.set_page_config(page_title="Candy Crush Saga", layout="centered")
 
 st.title("🍭 Candy Crush Python")
 st.write("Click two adjacent candies to swap them!")
 
-# The Game Logic (HTML/JavaScript)
-html_code = """
+# 2. The Game Logic (Cleaned HTML/JavaScript)
+# Using a raw string (r""") to avoid escape character issues
+html_code = r"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -37,17 +38,19 @@ html_code = """
         let selected = null;
 
         const playSound = (freq, type) => {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            } catch(e) { console.log("Audio not supported"); }
         };
 
         function initBoard() {
@@ -69,7 +72,11 @@ html_code = """
                     
                     ctx.fillStyle = COLORS[candy.color];
                     ctx.beginPath();
-                    ctx.roundRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10, 10);
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10, 10);
+                    } else {
+                        ctx.rect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                    }
                     ctx.fill();
                     
                     ctx.fillStyle = "white";
@@ -107,4 +114,61 @@ html_code = """
 
         async function processMatches() {
             let matches = checkMatches();
-            if (matches.length
+            if (matches.length > 0) {
+                playSound(440, 'sine');
+                score += matches.length * 10;
+                scoreElement.innerText = score;
+                matches.forEach(m => board[m.r][m.c].color = -1);
+                drawBoard();
+                await new Promise(r => setTimeout(r, 200));
+                
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let emptySpace = 0;
+                    for (let r = GRID_SIZE - 1; r >= 0; r--) {
+                        if (board[r][c].color === -1) {
+                            emptySpace++;
+                        } else if (emptySpace > 0) {
+                            board[r + emptySpace][c].color = board[r][c].color;
+                            board[r][c].color = -1;
+                        }
+                    }
+                    for (let r = 0; r < emptySpace; r++) {
+                        board[r][c].color = Math.floor(Math.random() * COLORS.length);
+                    }
+                }
+                drawBoard();
+                setTimeout(processMatches, 300);
+            }
+        }
+
+        canvas.onclick = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const c = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+            const r = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+            if (!selected) {
+                selected = {r, c};
+                playSound(600, 'square');
+            } else {
+                const dist = Math.abs(r - selected.r) + Math.abs(c - selected.c);
+                if (dist === 1) {
+                    let temp = board[r][c].color;
+                    board[r][c].color = board[selected.r][selected.c].color;
+                    board[selected.r][selected.c].color = temp;
+                    processMatches();
+                }
+                selected = null;
+            }
+            drawBoard();
+        };
+
+        initBoard();
+        while(checkMatches().length > 0) { initBoard(); }
+        drawBoard();
+    </script>
+</body>
+</html>
+"""
+
+# 3. Render the game in Streamlit
+components.html(html_code, height=550)
